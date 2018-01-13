@@ -54,6 +54,18 @@ public class MainActivity extends AppCompatActivity
                 PackageManager.PERMISSION_GRANTED &&
                 ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) ==
                         PackageManager.PERMISSION_GRANTED) {
+
+            Log.e("STATISTICALLYSAFE","permission already granted");
+
+            sharedPref = PreferenceManager.getDefaultSharedPreferences(MainActivity.this);
+
+
+
+            startService(intent);
+            float lat = sharedPref.getFloat("lat",0.0f);
+            float lon = sharedPref.getFloat("lon",0.0f);
+            new RequestTask(this).execute("http://1-dot-cobalt-mind-162219.appspot.com/getOverview?lat="+lat+"&lon="+lon+"&radius=0.2");
+
         }  else {
             ActivityCompat.requestPermissions(this, new String[] {
                             android.Manifest.permission.ACCESS_FINE_LOCATION,
