@@ -37,6 +37,7 @@ import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
+    Intent intent;
 
     SharedPreferences sharedPref;
     BroadcastReceiver receiver;
@@ -46,6 +47,9 @@ public class MainActivity extends AppCompatActivity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        setContentView(R.layout.activity_main);
+        intent  =  new Intent(this, LocationTracker.class);
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) ==
                 PackageManager.PERMISSION_GRANTED &&
                 ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) ==
@@ -56,18 +60,9 @@ public class MainActivity extends AppCompatActivity
                             android.Manifest.permission.ACCESS_COARSE_LOCATION },
                     0);
         }
-        setContentView(R.layout.activity_main);
-        Intent intent = new Intent(this, LocationTracker.class);
-        sharedPref = PreferenceManager.getDefaultSharedPreferences(MainActivity.this);
 
-
-
-        startService(intent);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        float lat = sharedPref.getFloat("lat",0.0f);
-        float lon = sharedPref.getFloat("lon",0.0f);
-        new RequestTask(this).execute("http://1-dot-cobalt-mind-162219.appspot.com/getOverview?lat="+lat+"&lon="+lon+"&radius=0.2");
         TextView responseTextView = (TextView)findViewById(R.id.response);
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
@@ -99,6 +94,47 @@ public class MainActivity extends AppCompatActivity
                 // do something here.
             }
         };
+
+
+
+    }
+
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           String permissions[], int[] grantResults) {
+        String TAG = "logMesg";
+        switch (requestCode) {
+            case 0: {
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+
+                    Log.e(TAG,"permission granted");
+
+                   sharedPref = PreferenceManager.getDefaultSharedPreferences(MainActivity.this);
+
+
+
+                    startService(intent);
+                    float lat = sharedPref.getFloat("lat",0.0f);
+                    float lon = sharedPref.getFloat("lon",0.0f);
+                    new RequestTask(this).execute("http://1-dot-cobalt-mind-162219.appspot.com/getOverview?lat="+lat+"&lon="+lon+"&radius=0.2");
+
+                    // permission was granted, yay! Do the
+                    // contacts-related task you need to do.
+
+                } else {
+                    Log.e(TAG,"permission not granted");
+                    // permission denied, boo! Disable the
+                    // functionality that depends on this permission.
+                }
+                return;
+            }
+
+            // other 'case' lines to check for other
+            // permissions this app might request.
+        }
     }
 
     protected void putNotification(String txt) {
