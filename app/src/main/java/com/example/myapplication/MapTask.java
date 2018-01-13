@@ -16,8 +16,8 @@ import java.util.Calendar;
 
 public class MapTask extends AsyncTask<String, String, String> {
 
-    MapsActivity ctxt;
-    public MapTask(MapsActivity act) {
+    MainActivity ctxt;
+    public MapTask(MainActivity act) {
         ctxt = act;
     }
 

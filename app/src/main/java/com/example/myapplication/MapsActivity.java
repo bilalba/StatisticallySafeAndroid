@@ -43,7 +43,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         sharedPref = PreferenceManager.getDefaultSharedPreferences(MapsActivity.this);
         refreshCurrentLocation();
         String urlParams = "?lat=" + lat + "&lon=" + lon + "&radius=.2";
-        new MapTask(this).execute(GET_NEAREST_URL + urlParams);
+//        new MapTask(this).execute(GET_NEAREST_URL + urlParams);
     }
 
     public void addMarkers() {
@@ -121,7 +121,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         double lon = mMap.getCameraPosition().target.longitude;
 
         String urlParams = "?lat=" + lat + "&lon=" + lon + "&radius=.2";
-        new MapTask(this).execute(GET_NEAREST_URL + urlParams);
+//        new MapTask(this).execute(GET_NEAREST_URL + urlParams);
     }
 
     void refreshCurrentLocation () {
