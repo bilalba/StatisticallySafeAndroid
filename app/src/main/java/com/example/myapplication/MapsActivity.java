@@ -29,6 +29,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     boolean isDataReady = false;
     String nearbyData = "";
     SharedPreferences sharedPref;
+    final String GET_NEAREST_URL = "http://1-dot-cobalt-mind-162219.appspot.com/getNearest";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -41,12 +42,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         sharedPref = PreferenceManager.getDefaultSharedPreferences(MapsActivity.this);
         float lat = sharedPref.getFloat("lat",0.0f);
         float lon = sharedPref.getFloat("lon",0.0f);
-        new MapTask(this).execute("" +
-                "?lat="+
-                lat+"&lon="+lon+"&radius=.2" +
-                "" +
-                "]");
-
+        String urlParams = "?lat=" + lat + "&lon=" + lon + "&radius=.2";
+        new MapTask(this).execute(GET_NEAREST_URL + urlParams);
     }
 
 
