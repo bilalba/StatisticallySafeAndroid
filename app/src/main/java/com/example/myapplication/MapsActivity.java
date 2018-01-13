@@ -22,7 +22,7 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback {
+public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleMap.OnCameraIdleListener {
 
     private GoogleMap mMap;
     boolean isMapReady = false;
@@ -30,6 +30,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     String nearbyData = "";
     SharedPreferences sharedPref;
     final String GET_NEAREST_URL = "http://1-dot-cobalt-mind-162219.appspot.com/getNearest";
+    float lat, lon;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -40,18 +41,19 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
         sharedPref = PreferenceManager.getDefaultSharedPreferences(MapsActivity.this);
-        float lat = sharedPref.getFloat("lat",0.0f);
-        float lon = sharedPref.getFloat("lon",0.0f);
+        refreshCurrentLocation();
         String urlParams = "?lat=" + lat + "&lon=" + lon + "&radius=.2";
         new MapTask(this).execute(GET_NEAREST_URL + urlParams);
     }
-
 
     public void addMarkers() {
         try {
             JSONObject json = new JSONObject(nearbyData);
             JSONArray arr = json.getJSONArray("crimes");
             int length = arr.length();
+            if (arr.length() != 0)
+                mMap.clear();
+
             for (int i = 0; i < length; i++) {
                 JSONObject crime = arr.getJSONObject(i);
                 float lat = Float.parseFloat(crime.getString("lat"));
@@ -62,13 +64,14 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         } catch (Exception e) {
             e.printStackTrace();
         }
-        float lat = sharedPref.getFloat("lat", 0.0f);
-        float lon = sharedPref.getFloat("lon", 0.0f);
+
+        /*
         CameraPosition cameraPosition = new CameraPosition.Builder()
                 .target(new LatLng(lat,lon))      // Sets the center of the map to Mountain View
                 .zoom(17)
                 .build();
         mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+        */
     }
 
     public void updateData(String data) {
@@ -98,11 +101,31 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mMap = googleMap;
 
         // Add a marker in Sydney and move the camera
-
         isMapReady = true;
+        mMap.setOnCameraIdleListener(this);
         if (isDataReady) {
             addMarkers();
         }
+
+        CameraPosition cameraPosition = new CameraPosition.Builder()
+                .target(new LatLng(lat,lon))      // Sets the center of the map to Mountain View
+                .zoom(17)
+                .build();
+        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
     }
 
+    @Override
+    public void onCameraIdle() {
+        //Get lat lon of center of map
+        double lat = mMap.getCameraPosition().target.latitude;
+        double lon = mMap.getCameraPosition().target.longitude;
+
+        String urlParams = "?lat=" + lat + "&lon=" + lon + "&radius=.2";
+        new MapTask(this).execute(GET_NEAREST_URL + urlParams);
+    }
+
+    void refreshCurrentLocation () {
+        lat = sharedPref.getFloat("lat", 0.0f);
+        lon = sharedPref.getFloat("lon", 0.0f);
+    }
 }
