@@ -14,6 +14,7 @@ import android.preference.PreferenceManager;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.LocalBroadcastManager;
@@ -50,7 +51,7 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.VisibleRegion;
 
 public class MainActivity extends AppCompatActivity
-        implements OnMapReadyCallback, GoogleMap.OnCameraIdleListener,NavigationView.OnNavigationItemSelectedListener {
+        implements OnMapReadyCallback, GoogleMap.OnCameraIdleListener,NavigationView.OnNavigationItemSelectedListener, GoogleMap.OnMyLocationButtonClickListener {
     Intent intent;
     BroadcastReceiver receiver;
     String overview_response;
@@ -138,10 +139,9 @@ public class MainActivity extends AppCompatActivity
                     if (latLon.length >= 2) {
                         lat = Float.parseFloat(latLon[0]);
                         lon = Float.parseFloat(latLon[1]);
-                        drawCurrentLocation();
+                        //drawCurrentLocation();
                     }
                 }
-                // do something here.
             }
         };
 
@@ -386,7 +386,7 @@ public class MainActivity extends AppCompatActivity
                 String type = crime.getString("type");
                 addMarker(lat,lon, type);
             }
-            drawCurrentLocation();
+            //drawCurrentLocation();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -438,6 +438,8 @@ public class MainActivity extends AppCompatActivity
                 .zoom(17)
                 .build();
         mMap.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+        mMap.setOnMyLocationButtonClickListener(this);
+        mMap.setMyLocationEnabled(true);
     }
     /*
      * onCameraIdle is called when camera view changes and is not changing anymore.
@@ -455,5 +457,17 @@ public class MainActivity extends AppCompatActivity
             mMap.clear();
         }
 
+    }
+
+    @Override
+    public boolean onMyLocationButtonClick() {
+        if (mMap!=null) {
+            CameraPosition cameraPosition = new CameraPosition.Builder()
+                    .target(new LatLng(lat,lon))      // Sets the center of the map to Mountain View
+                    .zoom(17)
+                    .build();
+            mMap.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+        }
+        return false;
     }
 }
