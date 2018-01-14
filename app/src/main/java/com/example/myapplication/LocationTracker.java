@@ -11,6 +11,7 @@ import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
+import android.speech.tts.TextToSpeech;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
@@ -21,6 +22,7 @@ import org.json.JSONObject;
 
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Random;
 
 
@@ -28,13 +30,35 @@ public class LocationTracker extends Service {
     static String overview_response;
     private static final String TAG = "BOOMBOOMTESTGPS";
     private LocationManager mLocationManager = null;
-    private static final int LOCATION_INTERVAL = 10000;
+    private static final int LOCATION_INTERVAL = 1000;
     private static final float LOCATION_DISTANCE = 10f;
     String url ="http://1-dot-hello-9239b.appspot.com/sample1";
     SharedPreferences sharedPref;
     LocalBroadcastManager broadcaster;
 
-    public static final String CRIME_DATA = "com.example.myapplication.CRIME_DATA";
+    public static final String LOCATION_DATA = "com.example.myapplication.LOCATION_DATA";
+    public static final String MSG_TYPE_CRIME = "CRIME";
+    public static final String MSG_TYPE_LOCATION = "LOCATION";
+    static TextToSpeech sts = null;
+    public void speak(String text) {
+        sts.speak(text, TextToSpeech.QUEUE_FLUSH, null);
+    }
+
+    void InitTextToSpeechInstance() {
+        if (sts == null) {
+            sts = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
+                @Override
+                public void onInit(int i) {
+                    sts.setLanguage(Locale.US);
+                }
+            });
+        }
+    }
+
+    void destroyTextToSpeechInstance() {
+        if (sts!=null)
+            sts.shutdown();
+    }
 
     public LocationTracker() {
         Log.e(TAG, "CONSTRUCTOR");
@@ -45,8 +69,6 @@ public class LocationTracker extends Service {
 
         final Intent emptyIntent = new Intent();
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 3, emptyIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-//        chart = (PieChart) findViewById(R.id.chart);
-
         NotificationCompat.Builder mBuilder =
                 new NotificationCompat.Builder(this)
                         .setSmallIcon(R.mipmap.ic_launcher)
@@ -80,11 +102,13 @@ public class LocationTracker extends Service {
             Log.e(TAG, "onLocationChanged: " + location);
             float lat = (float)location.getLatitude();
             float lon = (float)location.getLongitude();
+            sendResult("" + lat + "," + lon, MSG_TYPE_LOCATION);
             SharedPreferences.Editor editor= sharedPref.edit();
             editor.putFloat("lat", lat);
             editor.putFloat("lon", lon);
             editor.commit();
             new BackgroundTask(LocationTracker.this).execute("http://1-dot-cobalt-mind-162219.appspot.com/getOverview?lat="+lat+"&lon="+lon+"&radius=0.2");
+
         }
 
         @Override
@@ -127,7 +151,7 @@ public class LocationTracker extends Service {
     {
         Log.e(TAG, "onCreate");
         broadcaster = LocalBroadcastManager.getInstance(this);
-
+        InitTextToSpeechInstance();
         initializeLocationManager();
         sharedPref = PreferenceManager.getDefaultSharedPreferences(LocationTracker.this);
         try {
@@ -197,16 +221,23 @@ public class LocationTracker extends Service {
             Log.e("TAG", "Notification " + outputString);
             putNotification(outputString);
             Log.e("TAG", "Result " + outputString);
-            sendResult(viewString);
+            sendResult(viewString, MSG_TYPE_CRIME);
+            speak(viewString);
         } catch (JSONException e) {
             e.printStackTrace();
         }
     }
 
-    public void sendResult(String message) {
-        Intent intent = new Intent(CRIME_DATA);
-        if(message != null)
-            intent.putExtra(CRIME_DATA, message);
+    /*
+     * Broadcast message.
+     * Currently MainActivity is registered listener.
+     */
+    public void sendResult(String message, String messageType) {
+        Intent intent = new Intent(LOCATION_DATA);
+        if(message != null) {
+            System.out.println("Sending "+ message);
+            intent.putExtra(messageType, message);
+        }
         broadcaster.sendBroadcast(intent);
     }
 
@@ -224,6 +255,10 @@ public class LocationTracker extends Service {
                 }
             }
         }
+
+
+        super.onDestroy();
+        destroyTextToSpeechInstance();
     }
 
     private void initializeLocationManager() {

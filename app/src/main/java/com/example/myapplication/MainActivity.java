@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.design.widget.FloatingActionButton;
@@ -31,6 +32,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.sql.Types;
 import java.util.HashMap;
 import java.util.Iterator;
 import android.util.Log;
@@ -41,8 +43,11 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.CameraPosition;
+import com.google.android.gms.maps.model.Circle;
+import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.VisibleRegion;
 
 public class MainActivity extends AppCompatActivity
         implements OnMapReadyCallback, GoogleMap.OnCameraIdleListener,NavigationView.OnNavigationItemSelectedListener {
@@ -56,6 +61,10 @@ public class MainActivity extends AppCompatActivity
     SharedPreferences sharedPref;
     final String GET_NEAREST_URL = "http://1-dot-cobalt-mind-162219.appspot.com/getNearest";
     float lat, lon;
+
+    Circle mCurrLocationCircle1;
+    Circle mCurrLocationCircle2;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -74,13 +83,12 @@ public class MainActivity extends AppCompatActivity
 
 
             startService(intent);
-            float lat = sharedPref.getFloat("lat",0.0f);
-            float lon = sharedPref.getFloat("lon",0.0f);
+            lat = sharedPref.getFloat("lat",0.0f);
+            lon = sharedPref.getFloat("lon",0.0f);
             new RequestTask(this).execute("http://1-dot-cobalt-mind-162219.appspot.com/getOverview?lat="+lat+"&lon="+lon+"&radius=0.2");
             SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                     .findFragmentById(R.id.map);
             mapFragment.getMapAsync(this);
-            refreshCurrentLocation();
             String urlParams = "?lat=" + lat + "&lon=" + lon + "&radius=.2";
             new MapTask(this).execute(GET_NEAREST_URL + urlParams);
         }  else {
@@ -117,9 +125,22 @@ public class MainActivity extends AppCompatActivity
         receiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                String s = intent.getStringExtra(LocationTracker.CRIME_DATA);
-                tvResponse.setText(s);
-                Log.e("TAG" , "Main " + s);
+
+                String crime = intent.getStringExtra(LocationTracker.MSG_TYPE_CRIME);
+                if (crime!=null) {
+                    tvResponse.setText(crime);
+                    //Log.e("TAG" , "Main " + s);
+                }
+
+                String location = intent.getStringExtra(LocationTracker.MSG_TYPE_LOCATION);
+                if (location!=null) {
+                    String latLon[] = location.split(",");
+                    if (latLon.length >= 2) {
+                        lat = Float.parseFloat(latLon[0]);
+                        lon = Float.parseFloat(latLon[1]);
+                        drawCurrentLocation();
+                    }
+                }
                 // do something here.
             }
         };
@@ -146,8 +167,8 @@ public class MainActivity extends AppCompatActivity
 
 
                     startService(intent);
-                    float lat = sharedPref.getFloat("lat",0.0f);
-                    float lon = sharedPref.getFloat("lon",0.0f);
+                    lat = sharedPref.getFloat("lat",0.0f);
+                    lon = sharedPref.getFloat("lon",0.0f);
                     new RequestTask(this).execute("http://1-dot-cobalt-mind-162219.appspot.com/getOverview?lat="+lat+"&lon="+lon+"&radius=0.2");
 
                     // permission was granted, yay! Do the
@@ -267,6 +288,31 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+    private void drawCurrentLocation() {
+
+        if (mMap!=null) {
+            if (mCurrLocationCircle1!=null) {
+                mCurrLocationCircle1.remove();
+            }
+            if (mCurrLocationCircle2!=null) {
+                mCurrLocationCircle2.remove();
+            }
+            double delta = 1;
+            if (mMap.getCameraPosition().zoom  < 10)
+                delta = 500;
+            mCurrLocationCircle1 = mMap.addCircle(new CircleOptions()
+                    .center(new LatLng(lat, lon))
+                    .radius(9 * delta)
+                    .strokeColor(Color.BLUE)
+                    .fillColor(Color.WHITE));
+
+             mCurrLocationCircle2 = mMap.addCircle(new CircleOptions()
+                .center(new LatLng(lat, lon))
+                .radius(4 * delta)
+                .strokeColor(Color.BLUE)
+                .fillColor(Color.BLUE));
+        }
+    }
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -314,7 +360,7 @@ public class MainActivity extends AppCompatActivity
     protected void onStart() {
         super.onStart();
         LocalBroadcastManager.getInstance(this).registerReceiver((receiver),
-                new IntentFilter(LocationTracker.CRIME_DATA)
+                new IntentFilter(LocationTracker.LOCATION_DATA)
         );
     }
 
@@ -340,6 +386,7 @@ public class MainActivity extends AppCompatActivity
                 String type = crime.getString("type");
                 addMarker(lat,lon, type);
             }
+            drawCurrentLocation();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -390,21 +437,23 @@ public class MainActivity extends AppCompatActivity
                 .target(new LatLng(lat,lon))      // Sets the center of the map to Mountain View
                 .zoom(17)
                 .build();
-        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+        mMap.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
     }
-
+    /*
+     * onCameraIdle is called when camera view changes and is not changing anymore.
+     */
     @Override
     public void onCameraIdle() {
         //Get lat lon of center of map
-        double lat = mMap.getCameraPosition().target.latitude;
-        double lon = mMap.getCameraPosition().target.longitude;
+        System.out.println("OnCamerIdle");
+        if (mMap.getCameraPosition().zoom >= 16.8) {
+            double lat = mMap.getCameraPosition().target.latitude;
+            double lon = mMap.getCameraPosition().target.longitude;
+            String urlParams = "?lat=" + lat + "&lon=" + lon + "&radius=0.15" ;
+            new MapTask(this).execute(GET_NEAREST_URL + urlParams);
+        } else {
+            mMap.clear();
+        }
 
-        String urlParams = "?lat=" + lat + "&lon=" + lon + "&radius=.2";
-        new MapTask(this).execute(GET_NEAREST_URL + urlParams);
-    }
-
-    void refreshCurrentLocation () {
-        lat = sharedPref.getFloat("lat", 0.0f);
-        lon = sharedPref.getFloat("lon", 0.0f);
     }
 }
