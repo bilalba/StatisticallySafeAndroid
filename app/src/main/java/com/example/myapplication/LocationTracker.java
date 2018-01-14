@@ -14,6 +14,7 @@ import android.preference.PreferenceManager;
 import android.speech.tts.TextToSpeech;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.content.LocalBroadcastManager;
+import android.text.method.DateTimeKeyListener;
 import android.util.Log;
 import android.widget.TextView;
 
@@ -24,17 +25,19 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.Random;
+import android.text.format.Time;
 
 
 public class LocationTracker extends Service {
     static String overview_response;
     private static final String TAG = "BOOMBOOMTESTGPS";
     private LocationManager mLocationManager = null;
-    private static final int LOCATION_INTERVAL = 1000;
-    private static final float LOCATION_DISTANCE = 10f;
+    private static final int LOCATION_INTERVAL = 5000;
+    private static final float LOCATION_DISTANCE = 50f;
     String url ="http://1-dot-hello-9239b.appspot.com/sample1";
     SharedPreferences sharedPref;
     LocalBroadcastManager broadcaster;
+    Time lastNotificationTime;
 
     public static final String LOCATION_DATA = "com.example.myapplication.LOCATION_DATA";
     public static final String MSG_TYPE_CRIME = "CRIME";
@@ -210,14 +213,31 @@ public class LocationTracker extends Service {
 
             int crime_tr = js.getInt("crime_in_timerange");
             int total_crime = js.getInt("total_crime");
-            float pc = crime_tr*100.0f/total_crime;
+            if (total_crime == 0 || crime_tr == 0 || max == 0) {
+                return;
+            }
+
+            if (lastNotificationTime != null) {
+                Time now =  new Time();
+                now.setToNow();
+                if ((now.toMillis(true) - lastNotificationTime.toMillis(true))  < 30000) {
+                    return;
+                }
+            }
+
+            lastNotificationTime = new Time();
+            lastNotificationTime.setToNow();
+            double pc = crime_tr*100.0f/total_crime;
+            pc = Math.round(pc*100)/100D;
+            double crimeAtTime = (Math.round(max*100.0f/crime_tr*100)/100D);
+            if (crimeAtTime == 0.0) return;
             String time_range = js.getString("time_range");
             int start = Integer.parseInt(time_range.split(":")[0]);
             int end = Integer.parseInt(time_range.split(":")[1]);
 
             String outputString="total Crime:"+ total_crime+" Time Factor:"+crime_tr+ " " + arg_max;
             String viewString="total crime around you:"+ total_crime+"\n"+pc+ "% of total crime happens from " +start+ " to "+end +
-                    "\nYou are most vulnerable to " + arg_max+".\n\n "+  max*100.0f/crime_tr + " of crime was " + arg_max;
+                    "\nYou are most vulnerable to " + arg_max+".\n\n "+  (Math.round(max*100.0f/crime_tr*100)/100D) + " of crime was " + arg_max;
             Log.e("TAG", "Notification " + outputString);
             putNotification(outputString);
             Log.e("TAG", "Result " + outputString);
