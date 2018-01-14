@@ -102,7 +102,7 @@ public class LocationTracker extends Service {
             Log.e(TAG, "onLocationChanged: " + location);
             float lat = (float)location.getLatitude();
             float lon = (float)location.getLongitude();
-            sendResult("" + lat + "," + lon, MSG_TYPE_LOCATION);
+            //sendResult("" + lat + "," + lon, MSG_TYPE_LOCATION);
             SharedPreferences.Editor editor= sharedPref.edit();
             editor.putFloat("lat", lat);
             editor.putFloat("lon", lon);
@@ -235,7 +235,7 @@ public class LocationTracker extends Service {
     public void sendResult(String message, String messageType) {
         Intent intent = new Intent(LOCATION_DATA);
         if(message != null) {
-            System.out.println("Sending "+ message);
+            //System.out.println("Sending "+ message);
             intent.putExtra(messageType, message);
         }
         broadcaster.sendBroadcast(intent);

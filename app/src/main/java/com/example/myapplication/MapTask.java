@@ -30,7 +30,7 @@ public class MapTask extends AsyncTask<String, String, String> {
             Calendar now = Calendar.getInstance();
             int hour = now.get(Calendar.HOUR_OF_DAY);
             url=new URL(uri[0]+"&time=" + hour);
-
+            System.out.println("Reqeuest url+"+ url);
             urlConnection=(HttpURLConnection)url
                     .openConnection();
 
@@ -42,7 +42,7 @@ public class MapTask extends AsyncTask<String, String, String> {
             while(data!=-1){
                 char current=(char)data;
                 data=isw.read();
-                System.out.print(current);
+                //System.out.print(current);
                 response += current;
             }
         }catch(Exception e){

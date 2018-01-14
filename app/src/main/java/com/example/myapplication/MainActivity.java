@@ -34,8 +34,12 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.sql.Types;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+
 import android.util.Log;
 import android.widget.Toast;
 
@@ -47,8 +51,12 @@ import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.Circle;
 import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolygonOptions;
+import com.google.android.gms.maps.model.TileOverlayOptions;
 import com.google.android.gms.maps.model.VisibleRegion;
+import com.google.maps.android.heatmaps.HeatmapTileProvider;
 
 public class MainActivity extends AppCompatActivity
         implements OnMapReadyCallback, GoogleMap.OnCameraIdleListener,NavigationView.OnNavigationItemSelectedListener, GoogleMap.OnMyLocationButtonClickListener {
@@ -62,7 +70,11 @@ public class MainActivity extends AppCompatActivity
     SharedPreferences sharedPref;
     final String GET_NEAREST_URL = "http://1-dot-cobalt-mind-162219.appspot.com/getNearest";
     float lat, lon;
-
+    private static final int REQUEST_CODE_GOOGLE_PLAY_SERVECES_ERROR = -1;
+    private static final double EARTH_RADIOUS = 3958.75; // Earth radius;
+    private static final int METER_CONVERSION = 1609;
+    private final double ZOOM_MARKER_TO_HEATMAP_THRESHOLD = 16.0;
+    private List<LatLng> crimeDataList;
     Circle mCurrLocationCircle1;
     Circle mCurrLocationCircle2;
 
@@ -371,22 +383,41 @@ public class MainActivity extends AppCompatActivity
     }
 
 
-    public void addMarkers() {
+    public void drawCrimeData() {
         try {
+            mMap.clear();
+            double zoom = mMap.getCameraPosition().zoom;
             JSONObject json = new JSONObject(nearbyData);
             JSONArray arr = json.getJSONArray("crimes");
+
+            if (crimeDataList == null) {
+                crimeDataList = new ArrayList<>();
+            } else{
+                crimeDataList.clear();
+            }
             int length = arr.length();
-            if (arr.length() != 0)
+            float lat, lon;
+            String type;
+            if (length != 0)
                 mMap.clear();
 
             for (int i = 0; i < length; i++) {
                 JSONObject crime = arr.getJSONObject(i);
-                float lat = Float.parseFloat(crime.getString("lat"));
-                float lon = Float.parseFloat(crime.getString("lon"));
-                String type = crime.getString("type");
-                addMarker(lat,lon, type);
+                lat = Float.parseFloat(crime.getString("lat"));
+                lon = Float.parseFloat(crime.getString("lon"));
+                type = crime.getString("type");
+                if (zoom >= ZOOM_MARKER_TO_HEATMAP_THRESHOLD) {
+                   addMarker(lat, lon, type);
+                } else {
+                    crimeDataList.add(new LatLng(lat, lon));
+                    i = i + 10;
+                }
+            }
+            if (zoom < ZOOM_MARKER_TO_HEATMAP_THRESHOLD && crimeDataList.size()!=0) {
+                drawGridColorMap(crimeDataList);
             }
             //drawCurrentLocation();
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -404,7 +435,7 @@ public class MainActivity extends AppCompatActivity
         nearbyData = data;
         isDataReady = true;
         if (isMapReady)
-            addMarkers();
+            drawCrimeData();
     }
 
     public void addMarker(float lat, float lon, String type) {
@@ -430,7 +461,7 @@ public class MainActivity extends AppCompatActivity
         isMapReady = true;
         mMap.setOnCameraIdleListener(this);
         if (isDataReady) {
-            addMarkers();
+            drawCrimeData();
         }
 
         CameraPosition cameraPosition = new CameraPosition.Builder()
@@ -441,24 +472,53 @@ public class MainActivity extends AppCompatActivity
         mMap.setOnMyLocationButtonClickListener(this);
         mMap.setMyLocationEnabled(true);
     }
+    private double distanceFrom(double lat1, double lng1, double lat2, double lng2)
+    {
+        // Return distance between 2 points, stored as 2 pair location;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLng = Math.toRadians(lng2 - lng1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(Math.toRadians(lat1))
+                * Math.cos(Math.toRadians(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        double dist = EARTH_RADIOUS * c;
+        return new Double(dist * METER_CONVERSION).floatValue();
+    }
+    private double getVisibleRadius() {
+        VisibleRegion visibleRegion = mMap.getProjection().getVisibleRegion();
+        LatLng nearLeft = visibleRegion.nearLeft;
+        LatLng nearRight = visibleRegion.nearRight;
+        LatLng farLeft = visibleRegion.farLeft;
+        LatLng farRight = visibleRegion.farRight;
+        return distanceFrom(nearLeft.latitude, nearLeft.longitude, nearRight.latitude, nearRight.longitude) * 0.0005;
+    }
     /*
      * onCameraIdle is called when camera view changes and is not changing anymore.
      */
     @Override
     public void onCameraIdle() {
         //Get lat lon of center of map
-        System.out.println("OnCamerIdle");
-        if (mMap.getCameraPosition().zoom >= 16.8) {
-            double lat = mMap.getCameraPosition().target.latitude;
-            double lon = mMap.getCameraPosition().target.longitude;
-            String urlParams = "?lat=" + lat + "&lon=" + lon + "&radius=0.15" ;
-            new MapTask(this).execute(GET_NEAREST_URL + urlParams);
-        } else {
-            mMap.clear();
-        }
+        double radius = 0.15;
+       if (mMap.getCameraPosition().zoom < ZOOM_MARKER_TO_HEATMAP_THRESHOLD) {
+           radius = getVisibleRadius();
+       }
+       System.out.println(radius);
+       double lat = mMap.getCameraPosition().target.latitude;
+       double lon = mMap.getCameraPosition().target.longitude;
+       String urlParams = "?lat=" + lat + "&lon=" + lon + "&radius="+radius;
+       new MapTask(this).execute(GET_NEAREST_URL + urlParams);
+       //}
+        //} else {
+         //   mMap.clear();
+        //}
 
     }
 
+    void drawGridColorMap(List list) {
+        if (mMap!=null) {
+            HeatmapTileProvider provider = new HeatmapTileProvider.Builder().data(list).build();
+            mMap.addTileOverlay(new TileOverlayOptions().tileProvider(provider));
+        }
+    }
     @Override
     public boolean onMyLocationButtonClick() {
         if (mMap!=null) {
